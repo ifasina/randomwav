@@ -1,34 +1,45 @@
+//Libs to generate .wav file
 var tone   = require('tonegenerator');
 var wav    = require('wav');
+
+//Libs to create http server and help with parsing
 var http = require('http');
 var url = require('url');
 var fs = require('fs');
 var path = require('path');
+
+//Lib to help with POST/GET requests
 var request = require('request');
+
+//Lib to allow async functionality
 var promise = require('es6-promise').Promise
 
-//Helper func
+//Helper function. Pass in url that you want to GET data from. 
+//The thenable will contain the result of the GET
 var httpGET = function(url){
-    return new promise((resolve, reject) => {
-        request(url, function (error, response, body) {
-            if (!error) {
-                resolve(body);
-            } else {
-                reject(error);
-            }
-        });
+  return new promise((resolve, reject) => {
+    request(url, function (error, response, body) {
+      if (!error) {
+          resolve(body);
+      } else {
+          reject(error);
+      }
     });
+  });
 }
 
-// you can pass the parameter in the command line. e.g. node static_server.js 3000
-const port = 8000;
+//HTTP Server port
+var port = 8000;
 
 http.createServer(function (req, res) {
-  console.log(`${req.method} ${req.url}`);
+  console.log(req.method, req.url);
+
   // parse URL
-  const parsedUrl = url.parse(req.url);
+  var parsedUrl = url.parse(req.url);
+
   // extract URL path
-  let pathname = `.${parsedUrl.pathname}`;
+  var pathname = `.${parsedUrl.pathname}`;
+
   // maps file extention to MIME types
   const mimeType = {
     '.html': 'text/html',
@@ -59,24 +70,33 @@ http.createServer(function (req, res) {
         const ext = path.parse(pathname).ext;
         // if the file is found, set Content-type and send data
 
-        //Get the random number then use it to generate .wav
-        httpGET("https://www.random.org/integers?format=plain&num=1&min=100&max=700&col=1&base=10")
-        .then((x) =>{
-            console.log(x);
-            var writer = new wav.FileWriter('public/sounds/random.wav');
-            writer.write(new Buffer(tone(x, 3))); // xHz for 5 seconds
-            writer.end();
-            res.setHeader('Content-type', mimeType[ext] || 'text/plain' );
-            res.end(data);
-        })
-        .catch((e) =>{
-            console.log(e);
-            res.end("Error");
-        });
+        //Because I'm using the simple http library I have to handle a lot of case manually.
+        //This just makes it so that the GET isn't done twice when you're not requesting the
+        //homepage. Not pretty...
+        if (pathname != "./"){
+          //Get the random number then use it to generate .wav
+          httpGET("https://www.random.org/integers?format=plain&num=1&min=100&max=700&col=1&base=10")
+          .then((x) =>{
+              console.log(x);
+              var writer = new wav.FileWriter('public/sounds/random.wav');
+              writer.write(new Buffer(tone(x, 3))); // xHz for 5 seconds
+              writer.end();
+              res.setHeader('Content-type', mimeType[ext] || 'text/plain' );
+              res.end(data);
+          })
+          .catch((e) =>{
+              console.log(e);
+              res.end("Error");
+          });
+        } else {
+          res.setHeader('Content-type', mimeType[ext] || 'text/plain' );
+          res.end(data);
+        }
       }
     });
   });
 }).listen(parseInt(port));
-console.log(`Server listening on port ${port}`);
+
+console.log(`Server is running at http://localhost:${port} !`);
 
 
